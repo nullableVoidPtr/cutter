@@ -30,34 +30,6 @@ static const QHash<QString, ColorFlags> kRelevantSchemes = {
     { "white", LightFlag }
 };
 
-QStringList findLanguages()
-{
-    QDir dir(QCoreApplication::applicationDirPath() + QDir::separator() +
-             "translations");
-    QStringList fileNames = dir.entryList(QStringList("cutter_*.qm"), QDir::Files,
-                                          QDir::Name);
-    QStringList languages;
-    QString currLanguageName;
-    auto allLocales = QLocale::matchingLocales(QLocale::AnyLanguage, QLocale::AnyScript,
-                                               QLocale::AnyCountry);
-
-    for (auto i : fileNames) {
-        QString localeName = i.mid(sizeof("cutter_") - 1, 2);
-        for (auto j : allLocales) {
-            if (j.name().startsWith(localeName)) {
-                currLanguageName = j.nativeLanguageName();
-                currLanguageName = currLanguageName.at(0).toUpper() +
-                                   currLanguageName.right(currLanguageName.length() - 1);
-                languages << currLanguageName;
-                break;
-            }
-        }
-    }
-
-    return languages << "English";
-}
-
-
 AppearanceOptionsWidget::AppearanceOptionsWidget(PreferencesDialog *dialog, QWidget *parent)
     : QDialog(parent),
       ui(new Ui::AppearanceOptionsWidget)
@@ -68,7 +40,7 @@ AppearanceOptionsWidget::AppearanceOptionsWidget(PreferencesDialog *dialog, QWid
     updateFontFromConfig();
     updateThemeFromConfig(false);
 
-    QStringList langs = findLanguages();
+    QStringList langs = Config()->getAvailableTranslations();
     ui->languageComboBox->addItems(langs);
 
     QString curr = Config()->getCurrLocale().nativeLanguageName();
@@ -213,20 +185,12 @@ void AppearanceOptionsWidget::on_deleteButton_clicked()
 void AppearanceOptionsWidget::onLanguageComboBoxCurrentIndexChanged(int index)
 {
     QString language = ui->languageComboBox->itemText(index).toLower();
-    auto allLocales = QLocale::matchingLocales(QLocale::AnyLanguage, QLocale::AnyScript,
-                                               QLocale::AnyCountry);
-
-    for (auto &it : allLocales) {
-        if (it.nativeLanguageName().toLower() == language) {
-            Config()->setLocale(it);
-            break;
-        }
+    if (Config()->setLocaleByName(language)) {
+        QMessageBox::information(this,
+            tr("Language settings"),
+            tr("Language will be changed after next application start."));
+        return;
     }
 
-    QMessageBox mb;
-    mb.setWindowTitle(tr("Language settings"));
-    mb.setText(tr("Language will be changed after next application start."));
-    mb.setIcon(QMessageBox::Information);
-    mb.setStandardButtons(QMessageBox::Ok);
-    mb.exec();
+    qWarning() << tr("Cannot set language, not found in available ones");
 }

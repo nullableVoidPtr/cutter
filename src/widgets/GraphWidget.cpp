@@ -21,10 +21,15 @@ GraphWidget::GraphWidget(MainWindow *main, QAction *action) :
     });
 
     connect(this, &QDockWidget::visibilityChanged, this, [ = ](bool visibility) {
+        main->toggleOverview(visibility, this);
         if (visibility) {
             Core()->setMemoryWidgetPriority(CutterCore::MemoryWidgetType::Graph);
-            this->graphView->header->setFixedWidth(width());
+            this->graphView->refreshView();
         }
+    });
+
+    connect(graphView, &DisassemblerGraphView::graphMoved, this, [ = ]() {
+        main->toggleOverview(true, this);
     });
 
     connect(Core(), &CutterCore::raisePrioritizedMemoryWidget,
@@ -33,7 +38,6 @@ GraphWidget::GraphWidget(MainWindow *main, QAction *action) :
         if (type == CutterCore::MemoryWidgetType::Graph && !emptyGraph) {
             this->raise();
             this->graphView->setFocus();
-            this->graphView->header->setFixedWidth(width());
         }
     });
 }

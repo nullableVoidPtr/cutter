@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QFileOpenEvent>
 #include <QEvent>
+#include <QMenu>
 #include <QMessageBox>
 #include <QCommandLineParser>
 #include <QTextCodec>
@@ -25,53 +26,17 @@
 CutterApplication::CutterApplication(int &argc, char **argv) : QApplication(argc, argv)
 {
     // Setup application information
-    setOrganizationName("Cutter");
-    setApplicationName("Cutter");
     setApplicationVersion(CUTTER_VERSION_FULL);
     setWindowIcon(QIcon(":/img/cutter.svg"));
     setAttribute(Qt::AA_DontShowIconsInMenus);
+    setLayoutDirection(Qt::LeftToRight);
 
     // WARN!!! Put initialization code below this line. Code above this line is mandatory to be run First
     // Load translations
-    QTranslator *t = new QTranslator;
-    QTranslator *qtBaseTranslator = new QTranslator;
-    QTranslator *qtTranslator = new QTranslator;
-    QString language = Config()->getCurrLocale().bcp47Name();
-    auto allLocales = QLocale::matchingLocales(QLocale::AnyLanguage, QLocale::AnyScript,
-                                               QLocale::AnyCountry);
-
-    QString langPrefix;
-    if (language != "en") {
-        for (const QLocale &it : allLocales) {
-            langPrefix = it.bcp47Name();
-            if (langPrefix == language) {
-                const QString &cutterTranslationPath = QCoreApplication::applicationDirPath() + QDir::separator()
-                    + "translations" + QDir::separator() + QString("cutter_%1.qm").arg(langPrefix);
-
-                if (t->load(cutterTranslationPath)) {
-                    installTranslator(t);
-                }
-                QApplication::setLayoutDirection(it.textDirection());
-                QLocale::setDefault(it);
-
-                QString translationsPath(QLibraryInfo::location(QLibraryInfo::TranslationsPath));
-                if (qtTranslator->load(it, "qt", "_", translationsPath)) {
-                    installTranslator(qtTranslator);
-                } else {
-                    delete qtTranslator;
-                }
-
-                if (qtBaseTranslator->load(it, "qtbase", "_", translationsPath)) {
-                    installTranslator(qtBaseTranslator);
-                } else {
-                    delete qtBaseTranslator;
-                }
-
-                break;
-            }
-        }
+    if (!loadTranslations()) {
+        qWarning() << "Cannot load translations";
     }
- 
+
     // Load fonts
     int ret = QFontDatabase::addApplicationFont(":/fonts/Anonymous Pro.ttf");
     if (ret == -1) {
@@ -158,6 +123,11 @@ CutterApplication::CutterApplication(int &argc, char **argv) : QApplication(argc
     mainWindow = new MainWindow();
     installEventFilter(mainWindow);
 
+    // set up context menu shortcut display fix
+#if QT_VERSION_CHECK(5, 10, 0) < QT_VERSION
+    setStyle(new CutterProxyStyle());
+#endif // QT_VERSION_CHECK(5, 10, 0) < QT_VERSION
+
     if (args.empty()) {
         if (analLevelSpecified) {
             printf("%s\n",
@@ -165,6 +135,11 @@ CutterApplication::CutterApplication(int &argc, char **argv) : QApplication(argc
             std::exit(1);
         }
 
+        // check if this is the first execution of Cutter in this computer
+        // Note: the execution after the preferences benn reset, will be considered as first-execution
+        if (Config()->isFirstExecution()) {
+            mainWindow->displayWelcomeDialog();
+        }
         mainWindow->displayNewFileDialog();
     } else { // filename specified as positional argument
         InitialOptions options;
@@ -258,3 +233,79 @@ void CutterApplication::loadPlugins()
 
     Core()->setCutterPlugins(plugins);
 }
+
+bool CutterApplication::loadTranslations()
+{
+    const QString &language = Config()->getCurrLocale().bcp47Name();
+    if (language == QStringLiteral("en") || language.startsWith(QStringLiteral("en-"))) {
+        return true;
+    }
+    const auto &allLocales = QLocale::matchingLocales(QLocale::AnyLanguage, QLocale::AnyScript,
+        QLocale::AnyCountry);
+
+    bool cutterTrLoaded = false;
+
+    for (const QLocale &it : allLocales) {
+        const QString &langPrefix = it.bcp47Name();
+        if (langPrefix == language) {
+            QApplication::setLayoutDirection(it.textDirection());
+            QLocale::setDefault(it);
+
+            QTranslator *trCutter = new QTranslator;
+            QTranslator *trQtBase = new QTranslator;
+            QTranslator *trQt = new QTranslator;
+
+            const QStringList &cutterTrPaths = Config()->getTranslationsDirectories();
+
+            for (const auto &trPath : cutterTrPaths) {
+                if (trCutter && trCutter->load(it, QLatin1String("cutter"), QLatin1String("_"), trPath)) {
+                    installTranslator(trCutter);
+                    cutterTrLoaded = true;
+                    trCutter = nullptr;
+                }
+                if (trQt && trQt->load(it, "qt", "_", trPath)) {
+                    installTranslator(trQt);
+                    trQt = nullptr;
+                }
+
+                if (trQtBase && trQtBase->load(it, "qtbase", "_", trPath)) {
+                    installTranslator(trQtBase);
+                    trQtBase = nullptr;
+                }
+            }
+            
+            if (trCutter) {
+                delete trCutter;
+            }
+            if (trQt) {
+                delete trQt;
+            }
+            if (trQtBase) {
+                delete trQtBase;
+            }
+            return true;
+        }
+    }
+    if (!cutterTrLoaded) {
+        qWarning() << "Cannot load Cutter's translation for " << language;
+    }
+    return false;
+}
+
+
+void CutterProxyStyle::polish(QWidget *widget)
+{
+    QProxyStyle::polish(widget);
+#if QT_VERSION_CHECK(5, 10, 0) < QT_VERSION
+    // HACK: This is the only way I've found to force Qt (5.10 and newer) to
+    //       display shortcuts in context menus on all platforms. It's ugly,
+    //       but it gets the job done.
+    if (auto menu = qobject_cast<QMenu*>(widget)) {
+        const auto &actions = menu->actions();
+        for (auto action : actions) {
+            action->setShortcutVisibleInContextMenu(true);
+        }
+    }
+#endif // QT_VERSION_CHECK(5, 10, 0) < QT_VERSION
+}
+

@@ -178,6 +178,16 @@ QList<QString> InitialOptionsDialog::getSelectedAdvancedAnalCmds()
 {
     QList<QString> advanced = QList<QString>();
     if (ui->analSlider->value() == 3) {
+        // Enable analysis configurations before executing analysis commands
+        if (ui->jmptbl->isChecked()) {
+            advanced << "e! anal.jmptbl";
+        }
+        if (ui->pushret->isChecked()) {
+            advanced << "e! anal.pushret";
+        }
+        if (ui->hasnext->isChecked()) {
+            advanced << "e! anal.hasnext";
+        }
         if (ui->aa_symbols->isChecked()) {
             advanced << "aa";
         }
@@ -207,15 +217,6 @@ QList<QString> InitialOptionsDialog::getSelectedAdvancedAnalCmds()
         }
         if (ui->aap_preludes->isChecked()) {
             advanced << "aap";
-        }
-        if (ui->jmptbl->isChecked()) {
-            advanced << "e! anal.jmptbl";
-        }
-        if (ui->pushret->isChecked()) {
-            advanced << "e! anal.pushret";
-        }
-        if (ui->hasnext->isChecked()) {
-            advanced << "e! anal.hasnext";
         }
     }
     return advanced;
@@ -258,6 +259,8 @@ void InitialOptionsDialog::setupAndStartAnalysis(/*int level, QList<QString> adv
     if (ui->scriptCheckBox->isChecked()) {
         options.script = ui->scriptLineEdit->text();
     }
+
+
     options.endian = getSelectedEndianness();
     options.bbsize = getSelectedBBSize();
 

@@ -24,6 +24,10 @@ class GraphView : public QAbstractScrollArea
         Wide,
         Narrow,
     };
+
+signals:
+    void refreshBlock();
+
 public:
     struct GraphBlock;
 
@@ -53,8 +57,8 @@ public:
     };
 
     struct GraphBlock {
-        qreal x = 0.0;
-        qreal y = 0.0;
+        int x = 0;
+        int y = 0;
         int width = 0;
         int height = 0;
         // This is a unique identifier, e.g. offset in the case of r2 blocks
@@ -84,15 +88,21 @@ public:
         QColor color = QColor(128, 128, 128);
         bool start_arrow = false;
         bool end_arrow = true;
+        qreal width_scale = 1.0;
     };
 
-    GraphView(QWidget *parent);
-    ~GraphView();
+    explicit GraphView(QWidget *parent);
+    ~GraphView() override;
     void paintEvent(QPaintEvent *event) override;
 
-    // Show a block centered. Animates to it if animated=true
-    void showBlock(GraphBlock &block, bool animated = false);
-    void showBlock(GraphBlock *block, bool animated = false);
+    void showBlock(GraphBlock &block);
+    void showBlock(GraphBlock *block);
+
+    // Zoom data
+    qreal current_scale = 1.0;
+
+    int offset_x = 0;
+    int offset_y = 0;
 
 protected:
     std::unordered_map<ut64, GraphBlock> blocks;
@@ -104,11 +114,6 @@ protected:
     // Padding inside the block
     int block_padding = 16;
 
-    // Zoom data
-    double current_scale = 1.0;
-
-    int unscrolled_render_offset_x = 0;
-    int unscrolled_render_offset_y = 0;
 
     void addBlock(GraphView::GraphBlock block);
     void setEntry(ut64 e);
@@ -124,9 +129,19 @@ protected:
     virtual void wheelEvent(QWheelEvent *event) override;
     virtual EdgeConfiguration edgeConfiguration(GraphView::GraphBlock &from, GraphView::GraphBlock *to);
 
-    void adjustSize(int new_width, int new_height, QPoint mouse = QPoint(0, 0));
-
     bool event(QEvent *event) override;
+
+    // Mouse events
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+
+    void center();
+    void centerX();
+    void centerY();
+    int width = 0;
+    int height = 0;
 private:
     bool checkPointClicked(QPointF &point, int x, int y, bool above_y = false);
 
@@ -138,8 +153,6 @@ private:
     // Layout type
     LayoutType layoutType = LayoutType::Medium;
 
-    int width = 0;
-    int height = 0;
     bool ready = false;
 
     // Scrolling data
@@ -163,15 +176,7 @@ private:
     int findVertEdgeIndex(EdgesVector &edges, int col, int min_row, int max_row);
     GraphEdge routeEdge(EdgesVector &horiz_edges, EdgesVector &vert_edges, Matrix<bool> &edge_valid,
                         GraphBlock &start, GraphBlock &end, QColor color);
-
-private slots:
-    void resizeEvent(QResizeEvent *event) override;
-    // Mouse events
-    void mousePressEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
-    void mouseReleaseEvent(QMouseEvent *event) override;
-    void mouseDoubleClickEvent(QMouseEvent *event) override;
-
+    QPolygonF recalculatePolygon(QPolygonF polygon);
 };
 
 #endif // GRAPHVIEW_H

@@ -12,11 +12,12 @@
 #include <QMenu>
 #include <QClipboard>
 #include <QScrollBar>
+#include <QInputDialog>
 
 HexdumpWidget::HexdumpWidget(MainWindow *main, QAction *action) :
     CutterDockWidget(main, action),
     ui(new Ui::HexdumpWidget),
-    seekable(new CutterSeekableWidget(this))
+    seekable(new CutterSeekable(this))
 {
     ui->setupUi(this);
 
@@ -46,12 +47,12 @@ HexdumpWidget::HexdumpWidget(MainWindow *main, QAction *action) :
 
     ui->openSideViewB->hide();  // hide button at startup since side view is visible
 
-    connect(closeButton, &QToolButton::clicked, this, [this]{
-       ui->hexSideTab_2->hide();
-       ui->openSideViewB->show();
+    connect(closeButton, &QToolButton::clicked, this, [this] {
+        ui->hexSideTab_2->hide();
+        ui->openSideViewB->show();
     });
 
-    connect(ui->openSideViewB, &QToolButton::clicked, this, [this]{
+    connect(ui->openSideViewB, &QToolButton::clicked, this, [this] {
         ui->hexSideTab_2->show();
         ui->openSideViewB->hide();
     });
@@ -79,6 +80,11 @@ HexdumpWidget::HexdumpWidget(MainWindow *main, QAction *action) :
     updateHeaders();
 
     this->setWindowTitle(tr("Hexdump"));
+
+    refreshDeferrer = createReplacingRefreshDeferrer<RVA>(false, [this](const RVA *offset) {
+        refresh(offset ? *offset : RVA_INVALID);
+    });
+
     connect(&syncAction, SIGNAL(triggered(bool)), this, SLOT(toggleSync()));
 
     // Set hexdump context menu
@@ -115,7 +121,8 @@ HexdumpWidget::HexdumpWidget(MainWindow *main, QAction *action) :
     connect(ui->hexHexText, &QTextEdit::cursorPositionChanged, this, &HexdumpWidget::selectionChanged);
     connect(ui->hexASCIIText, &QTextEdit::cursorPositionChanged, this,
             &HexdumpWidget::selectionChanged);
-    connect(seekable, &CutterSeekableWidget::seekChanged, this, &HexdumpWidget::on_seekChanged);
+    connect(seekable, &CutterSeekable::seekableSeekChanged, this, &HexdumpWidget::onSeekChanged);
+    connect(&rangeDialog, &QDialog::accepted, this, &HexdumpWidget::on_rangeDialogAccepted);
 
     format = Format::Hex;
     initParsing();
@@ -206,13 +213,13 @@ void HexdumpWidget::setupScrollSync()
             asciiHexFunc);
 }
 
-void HexdumpWidget::on_seekChanged(RVA addr)
+void HexdumpWidget::onSeekChanged(RVA)
 {
     if (sent_seek) {
         sent_seek = false;
         return;
     }
-    refresh(addr);
+    refresh();
 }
 
 void HexdumpWidget::raisePrioritizedMemoryWidget(CutterCore::MemoryWidgetType type)
@@ -312,6 +319,12 @@ void HexdumpWidget::highlightHexWords(const QString &str)
 
 void HexdumpWidget::refresh(RVA addr)
 {
+    if (!refreshDeferrer->attemptRefresh(addr == RVA_INVALID ? nullptr : new RVA(addr))) {
+        return;
+    }
+
+    ut64 loadLines = 0;
+    ut64 curAddrLineOffset = 0;
     connectScroll(true);
 
     updateHeaders();
@@ -326,10 +339,17 @@ void HexdumpWidget::refresh(RVA addr)
         cols = 16;
 
     // TODO: Figure out how to calculate a sane value for this
-    bufferLines = qhelpers::getMaxFullyDisplayedLines(ui->hexHexText);
+    bufferLines = qhelpers::getMaxFullyDisplayedLines(ui->hexHexText) * 10;
 
-    ut64 loadLines = bufferLines * 3; // total lines to load
-    ut64 curAddrLineOffset = bufferLines; // line number where seek should be
+    if (requestedSelectionEndAddress != 0 && requestedSelectionStartAddress != 0
+            && requestedSelectionEndAddress > requestedSelectionStartAddress) {
+        loadLines = ((requestedSelectionEndAddress - requestedSelectionStartAddress) / cols) +
+                    (bufferLines * 2);
+        curAddrLineOffset = bufferLines;
+    } else {
+        loadLines = bufferLines * 3; // total lines to load
+        curAddrLineOffset = bufferLines; // line number where seek should be
+    }
 
     if (addr < curAddrLineOffset * cols) {
         curAddrLineOffset = static_cast<int>(addr / cols);
@@ -607,6 +627,8 @@ void HexdumpWidget::showHexdumpContextMenu(const QPoint &pt)
     formatSubmenu->addAction(ui->actionFormatHex);
     formatSubmenu->addAction(ui->actionFormatOctal);
 
+    menu->addAction(ui->actionSelect_Block);
+
     menu->addSeparator();
     syncAction.setText(tr("Sync/unsync offset"));
     menu->addAction(&syncAction);
@@ -639,12 +661,11 @@ void HexdumpWidget::showHexdumpContextMenu(const QPoint &pt)
 void HexdumpWidget::toggleSync()
 {
     QString windowTitle = tr("Hexdump");
-    seekable->toggleSyncWithCore();
-    if (seekable->getSyncWithCore()) {
+    seekable->toggleSynchronization();
+    if (seekable->isSynchronized()) {
         setWindowTitle(windowTitle);
     } else {
-        setWindowTitle(windowTitle + CutterSeekableWidget::tr(" (unsynced)"));
-        seekable->setIndependentOffset(Core()->getOffset());
+        setWindowTitle(windowTitle + CutterSeekable::tr(" (unsynced)"));
     }
 }
 
@@ -1017,6 +1038,19 @@ void HexdumpWidget::on_actionFormatOctal_triggered()
     refresh();
 }
 
+void HexdumpWidget::on_actionSelect_Block_triggered()
+{
+
+    //get the current hex address from current cursor location
+    rangeDialog.setStartAddress(
+        hexPositionToAddress(ui->hexHexText->textCursor().position()));
+    rangeDialog.setModal(false);
+    rangeDialog.show();
+    rangeDialog.activateWindow();
+    rangeDialog.raise();
+
+}
+
 void HexdumpWidget::on_parseTypeComboBox_currentTextChanged(const QString &)
 {
     if (ui->parseTypeComboBox->currentIndex() == 0) {
@@ -1111,6 +1145,38 @@ void HexdumpWidget::selectHexPreview()
     if (ui->parseBitsComboBox->findText(bits) != -1) {
         ui->parseBitsComboBox->setCurrentIndex(ui->parseBitsComboBox->findText(bits));
     }
+}
+
+void HexdumpWidget::on_rangeDialogAccepted()
+{
+    int                 startPosition;
+    int                 endPosition;
+    QTextCursor         targetTextCursor;
+
+    requestedSelectionStartAddress = Core()->math(rangeDialog.getStartAddress());
+    requestedSelectionEndAddress = rangeDialog.getEndAddressRadioButtonChecked() ?
+                                   Core()->math(rangeDialog.getEndAddress()) :
+                                   requestedSelectionStartAddress + Core()->math(rangeDialog.getLength());
+
+    //not sure what the accepted user feedback mechanism is, output to console or a QMessageBox alert
+    if (requestedSelectionEndAddress <= requestedSelectionStartAddress) {
+        Core()->message(tr("Error: Could not select range, end address is less then start address"));
+        return;
+    }
+
+    //seek to the start address and create a text cursor to highlight the desired range
+    refresh(requestedSelectionStartAddress);
+
+    //for large selections, won't be able to calculate the endPosition because hexAddressToPosition assumes the address is loaded?
+    startPosition = hexAddressToPosition(requestedSelectionStartAddress);
+    endPosition = hexAddressToPosition(requestedSelectionEndAddress) - 1;
+
+    targetTextCursor = ui->hexHexText->textCursor();
+
+    targetTextCursor.setPosition(startPosition);
+    targetTextCursor.setPosition(endPosition, QTextCursor::KeepAnchor);
+
+    ui->hexHexText->setTextCursor(targetTextCursor);
 }
 
 void HexdumpWidget::showOffsets(bool show)

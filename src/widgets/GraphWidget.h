@@ -13,10 +13,7 @@ class GraphWidget : public CutterDockWidget
 public:
     explicit GraphWidget(MainWindow *main, QAction *action = nullptr);
     ~GraphWidget();
-
-private:
     DisassemblerGraphView *graphView;
-
 };
 
 #endif // GRAPHWIDGET_H

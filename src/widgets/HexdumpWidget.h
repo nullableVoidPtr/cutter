@@ -10,7 +10,8 @@
 
 #include "Cutter.h"
 #include "CutterDockWidget.h"
-#include "CutterSeekableWidget.h"
+#include "common/CutterSeekable.h"
+#include "dialogs/HexdumpRangeDialog.h"
 #include "common/Highlighter.h"
 #include "common/HexAsciiHighlighter.h"
 #include "common/HexHighlighter.h"
@@ -19,6 +20,8 @@
 #include "Dashboard.h"
 
 #include "ui_HexdumpWidget.h"
+
+class RefreshDeferrer;
 
 class HexdumpWidget : public CutterDockWidget
 {
@@ -44,7 +47,7 @@ public:
 
 public slots:
     void initParsing();
-
+    void on_rangeDialogAccepted();
     void showOffsets(bool show);
 
     void zoomIn(int range = 1);
@@ -69,6 +72,8 @@ private:
 
     RVA first_loaded_address = RVA_INVALID;
     RVA last_loaded_address = RVA_INVALID;
+
+    RefreshDeferrer *refreshDeferrer;
 
     void refresh(RVA addr = RVA_INVALID);
     void selectHexPreview();
@@ -102,11 +107,14 @@ private:
 
     int bufferLines = 0;
     int cols = 0;
+    ut64 requestedSelectionStartAddress=0;
+    ut64 requestedSelectionEndAddress=0;
+    HexdumpRangeDialog  rangeDialog;
     QAction syncAction;
-    CutterSeekableWidget *seekable;
+    CutterSeekable *seekable;
 
 private slots:
-    void on_seekChanged(RVA addr);
+    void onSeekChanged(RVA addr);
     void raisePrioritizedMemoryWidget(CutterCore::MemoryWidgetType type);
 
     // Currently unused/untested
@@ -136,6 +144,8 @@ private slots:
 
     void on_actionFormatHex_triggered();
     void on_actionFormatOctal_triggered();
+
+    void on_actionSelect_Block_triggered();
 
     void fontsUpdated();
     void colorsUpdatedSlot();

@@ -19,6 +19,8 @@ class QAbstractItemView;
 class MainWindow;
 class SectionsWidget;
 class AbstractAddrDock;
+class AddrDockScene;
+class QGraphicsSceneMouseEvent;
 class RawAddrDock;
 class VirtualAddrDock;
 class QuickFilterView;
@@ -80,6 +82,8 @@ private:
     QWidget *dockWidgetContents;
     QuickFilterView *quickFilterView;
 
+    RefreshDeferrer *refreshDeferrer;
+
     QWidget *addrDockWidget;
     RawAddrDock *rawAddrDock;
     VirtualAddrDock *virtualAddrDock;
@@ -105,26 +109,50 @@ public:
 
     virtual void updateDock();
 
-protected slots:
-    void addTextItem(QColor color, QPoint pos, QString string);
-
 protected:
     int indicatorWidth;
     int indicatorHeight;
     int indicatorParamPosY;
-    int heightThreshold;
+    float heightThreshold;
+    float heightDivisor;
     int rectOffset;
     int rectWidth;
     QColor indicatorColor;
     QColor textColor;
-    QGraphicsScene *graphicsScene;
+    AddrDockScene *addrDockScene;
     QGraphicsView *graphicsView;
     SectionsProxyModel *proxyModel;
-    QHash<QString, int> namePosYMap;
-    QHash<QString, int> nameHeightMap;
+
+    void addTextItem(QColor color, QPoint pos, QString string);
+    int getAdjustedSize(int size, int validMinSize);
 
 private:
     void drawIndicator(QString name, float ratio);
+};
+
+class AddrDockScene : public QGraphicsScene
+{
+    Q_OBJECT
+
+public:
+    explicit AddrDockScene(QWidget *parent = nullptr);
+    ~AddrDockScene();
+
+    bool disableCenterOn;
+
+    QHash<QString, RVA> nameAddrMap;
+    QHash<QString, int> nameAddrSizeMap;
+    QHash<QString, RVA> seekAddrMap;
+    QHash<QString, int> seekAddrSizeMap;
+    QHash<QString, int> namePosYMap;
+    QHash<QString, int> nameHeightMap;
+
+protected:
+    void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
+    void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
+
+private:
+    RVA getAddrFromPos(int posY, bool seek);
 };
 
 class RawAddrDock : public AbstractAddrDock
@@ -136,6 +164,7 @@ public:
     ~RawAddrDock();
 
     void updateDock() override;
+    int getValidMinSize();
 };
 
 class VirtualAddrDock : public AbstractAddrDock
@@ -147,6 +176,7 @@ public:
     ~VirtualAddrDock();
 
     void updateDock() override;
+    int getValidMinSize();
 };
 
 #endif // SECTIONSWIDGET_H

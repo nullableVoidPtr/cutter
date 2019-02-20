@@ -30,13 +30,11 @@ private:
     void loadInitial();
 
     // Colors
-    void loadBaseDark();
-    void loadDefaultTheme();
+    void loadBaseThemeNative();
+    void loadBaseThemeDark();
+    void loadNativeTheme();
     void loadDarkTheme();
     void setColor(const QString &name, const QColor &color);
-
-    // Images
-    QString logoFile;
 
     // Asm Options
     void applySavedAsmOptions();
@@ -51,12 +49,15 @@ public:
     // Languages
     QLocale getCurrLocale() const;
     void setLocale(const QLocale &l);
+    bool setLocaleByName(const QString &language);
+    QStringList getAvailableTranslations();
 
     // Fonts
     const QFont getFont() const;
     void setFont(const QFont &font);
 
     // Colors
+    bool windowColorIsDark();
     void setLastThemeOf(const CutterQtTheme &currQtTheme, const QString& theme);
     QString getLastThemeOf(const CutterQtTheme &currQtTheme) const;
     const QColor getColor(const QString &name) const;
@@ -66,8 +67,13 @@ public:
         return s.value("ColorPalette", 0).toInt();
     }
 
+    const CutterQtTheme *getCurrentTheme();
+
     QString getDirProjects();
     void setDirProjects(const QString &dir);
+
+    QString getRecentFolder();
+    void setRecentFolder(const QString &dir);
 
     void setNewFileLastClicked(int lastClicked);
     int getNewFileLastClicked();
@@ -103,6 +109,13 @@ public:
      * \brief Set the value of a config var either to r2 or settings, depending on the key.
      */
     void setConfig(const QString &key, const QVariant &value);
+    bool isFirstExecution();
+    
+    /*!
+     * \brief Get list of available translation directories (depends on configuration and OS)
+     * \return list of directories
+     */
+    QStringList getTranslationsDirectories() const;
 
 signals:
     void fontsUpdated();

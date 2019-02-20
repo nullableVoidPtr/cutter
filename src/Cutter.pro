@@ -4,7 +4,7 @@ TARGET = Cutter
 
 CUTTER_VERSION_MAJOR = 1
 CUTTER_VERSION_MINOR = 7
-CUTTER_VERSION_PATCH = 2
+CUTTER_VERSION_PATCH = 4
 
 VERSION = $${CUTTER_VERSION_MAJOR}.$${CUTTER_VERSION_MINOR}.$${CUTTER_VERSION_PATCH}
 
@@ -13,12 +13,14 @@ lessThan(QT_MAJOR_VERSION, 5): error("requires Qt 5")
 
 TRANSLATIONS += translations/cutter_ca.ts \
                 translations/cutter_de.ts \
-                translations/cutter_es-ES.ts \
+                translations/cutter_es.ts \
                 translations/cutter_fr.ts \
                 translations/cutter_it.ts \
                 translations/cutter_nl.ts \
-                translations/cutter_pt-PT.ts \
-                translations/cutter_ru.ts
+                translations/cutter_pt.ts \
+                translations/cutter_ro.ts \
+                translations/cutter_ru.ts \
+                translations/cutter_tr.ts
 
 # Icon for OS X
 ICON = img/cutter.icns
@@ -126,6 +128,7 @@ SOURCES += \
     Main.cpp \
     Cutter.cpp \
     widgets/DisassemblerGraphView.cpp \
+    widgets/OverviewView.cpp \
     common/RichTextPainter.cpp \
     dialogs/InitialOptionsDialog.cpp \
     dialogs/AboutDialog.cpp \
@@ -153,15 +156,12 @@ SOURCES += \
     widgets/ImportsWidget.cpp \
     widgets/Omnibar.cpp \
     widgets/RelocsWidget.cpp \
-    widgets/SdbDock.cpp \
     widgets/SectionsWidget.cpp \
     widgets/SegmentsWidget.cpp \
-    widgets/Sidebar.cpp \
     widgets/StringsWidget.cpp \
     widgets/SymbolsWidget.cpp \
     menus/DisassemblyContextMenu.cpp \
     widgets/DisassemblyWidget.cpp \
-    widgets/SidebarWidget.cpp \
     widgets/HexdumpWidget.cpp \
     common/Configuration.cpp \
     common/Colors.cpp \
@@ -190,9 +190,9 @@ SOURCES += \
     common/NestedIPyKernel.cpp \
     dialogs/R2PluginsDialog.cpp \
     widgets/CutterDockWidget.cpp \
-    widgets/CutterSeekableWidget.cpp \
     widgets/CutterTreeWidget.cpp \
     widgets/GraphWidget.cpp \
+    widgets/OverviewWidget.cpp \
     common/JsonTreeItem.cpp \
     common/JsonModel.cpp \
     dialogs/VersionInfoDialog.cpp \
@@ -206,7 +206,7 @@ SOURCES += \
     common/CommandTask.cpp \
     common/ProgressIndicator.cpp \
     common/R2Task.cpp \
-    widgets/DebugToolbar.cpp \
+    widgets/DebugActions.cpp \
     widgets/MemoryMapWidget.cpp \
     dialogs/preferences/DebugOptionsWidget.cpp \
     widgets/BreakpointWidget.cpp \
@@ -214,16 +214,26 @@ SOURCES += \
     dialogs/AttachProcDialog.cpp \
     widgets/RegisterRefsWidget.cpp \
     dialogs/SetToDataDialog.cpp \
-    dialogs/SetFunctionVarTypes.cpp \
+    dialogs/EditVariablesDialog.cpp \
     widgets/ColorSchemePrefWidget.cpp \
     common/ColorSchemeFileSaver.cpp \
     dialogs/EditFunctionDialog.cpp \
     widgets/CutterTreeView.cpp \
-    widgets/ComboQuickFilterView.cpp
+    widgets/ComboQuickFilterView.cpp \
+    dialogs/HexdumpRangeDialog.cpp \
+    common/QtResImporter.cpp \
+    common/CutterSeekable.cpp \
+    common/RefreshDeferrer.cpp \
+    dialogs/WelcomeDialog.cpp \
+    RunScriptTask.cpp \
+    dialogs/EditMethodDialog.cpp \
+    dialogs/LoadNewTypesDialog.cpp \
+    widgets/SdbWidget.cpp
 
 HEADERS  += \
     Cutter.h \
     widgets/DisassemblerGraphView.h \
+    widgets/OverviewView.h \
     common/RichTextPainter.h \
     common/CachedFontMetrics.h \
     dialogs/AboutDialog.h \
@@ -252,15 +262,12 @@ HEADERS  += \
     widgets/ImportsWidget.h \
     widgets/Omnibar.h \
     widgets/RelocsWidget.h \
-    widgets/SdbDock.h \
     widgets/SectionsWidget.h \
     widgets/SegmentsWidget.h \
-    widgets/Sidebar.h \
     widgets/StringsWidget.h \
     widgets/SymbolsWidget.h \
     menus/DisassemblyContextMenu.h \
     widgets/DisassemblyWidget.h \
-    widgets/SidebarWidget.h \
     widgets/HexdumpWidget.h \
     common/Configuration.h \
     common/Colors.h \
@@ -290,8 +297,8 @@ HEADERS  += \
     dialogs/R2PluginsDialog.h \
     widgets/CutterDockWidget.h \
     widgets/CutterTreeWidget.h \
-    widgets/CutterSeekableWidget.h \
     widgets/GraphWidget.h \
+    widgets/OverviewWidget.h \
     common/JsonTreeItem.h \
     common/JsonModel.h \
     dialogs/VersionInfoDialog.h \
@@ -308,7 +315,7 @@ HEADERS  += \
     common/ProgressIndicator.h \
     plugins/CutterPlugin.h \
     common/R2Task.h \
-    widgets/DebugToolbar.h \
+    widgets/DebugActions.h \
     widgets/MemoryMapWidget.h \
     dialogs/preferences/DebugOptionsWidget.h \
     widgets/BreakpointWidget.h \
@@ -317,12 +324,22 @@ HEADERS  += \
     widgets/RegisterRefsWidget.h \
     dialogs/SetToDataDialog.h \
     common/InitialOptions.h \
-    dialogs/SetFunctionVarTypes.h \
+    dialogs/EditVariablesDialog.h \
     common/ColorSchemeFileSaver.h \
     widgets/ColorSchemePrefWidget.h \
     dialogs/EditFunctionDialog.h \
     widgets/CutterTreeView.h \
-    widgets/ComboQuickFilterView.h
+    widgets/ComboQuickFilterView.h \
+    dialogs/HexdumpRangeDialog.h \
+    common/QtResImporter.h \
+    common/CutterSeekable.h \
+    common/RefreshDeferrer.h \
+    dialogs/WelcomeDialog.h \
+    RunScriptTask.h \
+    common/Json.h \
+    dialogs/EditMethodDialog.h \
+    dialogs/LoadNewTypesDialog.h \
+    widgets/SdbWidget.h
 
 FORMS    += \
     dialogs/AboutDialog.ui \
@@ -344,12 +361,9 @@ FORMS    += \
     widgets/ExportsWidget.ui \
     widgets/FunctionsWidget.ui \
     widgets/ImportsWidget.ui \
-    widgets/SdbDock.ui \
     widgets/RelocsWidget.ui \
-    widgets/Sidebar.ui \
     widgets/StringsWidget.ui \
     widgets/SymbolsWidget.ui \
-    widgets/SidebarWidget.ui \
     widgets/HexdumpWidget.ui \
     dialogs/SaveProjectDialog.ui \
     dialogs/preferences/PreferencesDialog.ui \
@@ -378,10 +392,15 @@ FORMS    += \
     dialogs/AttachProcDialog.ui \
     widgets/RegisterRefsWidget.ui \
     dialogs/SetToDataDialog.ui \
-    dialogs/SetFunctionVarTypes.ui \
+    dialogs/EditVariablesDialog.ui \
     widgets/ColorSchemePrefWidget.ui \
     widgets/CutterTreeView.ui \
-    widgets/ComboQuickFilterView.ui
+    widgets/ComboQuickFilterView.ui \
+    dialogs/HexdumpRangeDialog.ui \
+    dialogs/WelcomeDialog.ui \
+    dialogs/EditMethodDialog.ui \
+    dialogs/LoadNewTypesDialog.ui \
+    widgets/SdbWidget.ui
 
 RESOURCES += \
     resources.qrc \

@@ -11,7 +11,7 @@
 #include "widgets/GraphView.h"
 #include "menus/DisassemblyContextMenu.h"
 #include "common/RichTextPainter.h"
-#include "CutterSeekableWidget.h"
+#include "common/CutterSeekable.h"
 
 class QTextEdit;
 class SyntaxHighlighter;
@@ -128,6 +128,10 @@ public:
     bool isGraphEmpty();
     QTextEdit *header = nullptr;
 
+    int getWidth() { return width; }
+    int getHeight() { return height; }
+
+    std::unordered_map<ut64, GraphBlock> getBlocks() { return blocks; }
 public slots:
     void refreshView();
     void colorsUpdatedSlot();
@@ -145,16 +149,17 @@ public slots:
     void nextInstr();
     void prevInstr();
 
+    void copySelection();
+
 protected:
-    virtual void wheelEvent(QWheelEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;
 
 private slots:
-    void seekPrev();
-
     void on_actionExportGraph_triggered();
 
 private:
-    bool first_draw = true;
     bool transition_dont_seek = false;
 
     Token *highlight_token;
@@ -179,7 +184,7 @@ private:
     DisassemblyBlock *blockForAddress(RVA addr);
     void seekLocal(RVA addr, bool update_viewport = true);
     void seekInstruction(bool previous_instr);
-    CutterSeekableWidget *seekable = nullptr;
+    CutterSeekable *seekable = nullptr;
     QList<QShortcut *> shortcuts;
     QList<RVA> breakpoints;
 
@@ -212,6 +217,11 @@ private:
 
     QLabel *emptyText = nullptr;
     SyntaxHighlighter *highlighter = nullptr;
+
+signals:
+    void viewRefreshed();
+    void viewZoomed();
+    void graphMoved();
 };
 
 #endif // DISASSEMBLERGRAPHVIEW_H

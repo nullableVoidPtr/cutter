@@ -81,7 +81,7 @@ QToolTip {
      <x>0</x>
      <y>0</y>
      <width>1013</width>
-     <height>20</height>
+     <height>22</height>
     </rect>
    </property>
    <property name="defaultUp">
@@ -95,8 +95,8 @@ QToolTip {
      <rect>
       <x>378</x>
       <y>100</y>
-      <width>139</width>
-      <height>240</height>
+      <width>162</width>
+      <height>260</height>
      </rect>
     </property>
     <property name="title">
@@ -136,6 +136,7 @@ QToolTip {
      <string>Help</string>
     </property>
     <addaction name="actionAbout"/>
+    <addaction name="actionIssue"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
@@ -155,52 +156,52 @@ QToolTip {
      <property name="title">
       <string>Add extra...</string>
      </property>
+     <addaction name="actionExtraDisassembly"/>
      <addaction name="actionExtraGraph"/>
      <addaction name="actionExtraHexdump"/>
-     <addaction name="actionExtraDisassembly"/>
     </widget>
     <widget class="QMenu" name="menuAddInfoWidgets">
      <property name="title">
       <string>Info...</string>
      </property>
-     <addaction name="actionEntrypoints"/>
      <addaction name="actionClasses"/>
-     <addaction name="actionImports"/>
+     <addaction name="actionEntrypoints"/>
      <addaction name="actionExports"/>
-     <addaction name="actionSymbols"/>
-     <addaction name="actionSDBBrowser"/>
-     <addaction name="actionResources"/>
-     <addaction name="actionVTables"/>
-     <addaction name="actionTypes"/>
      <addaction name="actionFlags"/>
+     <addaction name="actionHeaders"/>
+     <addaction name="actionImports"/>
+     <addaction name="actionRelocs"/>
+     <addaction name="actionResources"/>
+     <addaction name="actionSDBBrowser"/>
      <addaction name="actionSections"/>
      <addaction name="actionSegments"/>
-     <addaction name="actionHeaders"/>
+     <addaction name="actionSymbols"/>
+     <addaction name="actionVTables"/>
      <addaction name="actionZignatures"/>
-     <addaction name="actionRelocs"/>
     </widget>
     <widget class="QMenu" name="menuAddDebugWidgets">
      <property name="title">
       <string>Debug...</string>
      </property>
-     <addaction name="actionStack"/>
-     <addaction name="actionRegisters"/>
      <addaction name="actionBacktrace"/>
-     <addaction name="actionMemoryMap"/>
      <addaction name="actionBreakpoint"/>
+     <addaction name="actionMemoryMap"/>
+     <addaction name="actionRegisters"/>
      <addaction name="actionRegisterRefs"/>
+     <addaction name="actionStack"/>
     </widget>
     <addaction name="actionDashboard"/>
     <addaction name="separator"/>
     <addaction name="actionDisassembly"/>
     <addaction name="actionGraph"/>
+    <addaction name="actionFunctions"/>
     <addaction name="actionHexdump"/>
     <addaction name="actionPseudocode"/>
-    <addaction name="actionFunctions"/>
-    <addaction name="actionSidebar"/>
+    <addaction name="actionOverview"/>
     <addaction name="separator"/>
-    <addaction name="actionStrings"/>
     <addaction name="actionSearch"/>
+    <addaction name="actionStrings"/>
+    <addaction name="actionTypes"/>
     <addaction name="separator"/>
     <addaction name="menuAddInfoWidgets"/>
     <addaction name="menuAddDebugWidgets"/>
@@ -276,6 +277,11 @@ QToolTip {
   <action name="actionAbout">
    <property name="text">
     <string>About</string>
+   </property>
+  </action>
+  <action name="actionIssue">
+   <property name="text">
+    <string>Report an issue</string>
    </property>
   </action>
   <action name="actionNew">
@@ -934,6 +940,14 @@ QToolTip {
     <string>Graph</string>
    </property>
   </action>
+  <action name="actionOverview">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Graph Overview</string>
+   </property>
+  </action>
   <action name="actionPseudocode">
    <property name="checkable">
     <bool>true</bool>
@@ -948,14 +962,6 @@ QToolTip {
    </property>
    <property name="text">
     <string>Hexdump</string>
-   </property>
-  </action>
-  <action name="actionSidebar">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Sidebar</string>
    </property>
   </action>
   <action name="actionConsole">

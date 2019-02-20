@@ -5,13 +5,15 @@
 
 #include "Cutter.h" // only needed for ut64
 #include "widgets/DisassemblyWidget.h"
-#include "widgets/SidebarWidget.h"
+#include "widgets/GraphWidget.h"
+#include "widgets/OverviewWidget.h"
 #include "widgets/StackWidget.h"
 #include "widgets/RegistersWidget.h"
 #include "widgets/BacktraceWidget.h"
 #include "widgets/HexdumpWidget.h"
 #include "widgets/PseudocodeWidget.h"
 #include "dialogs/NewFileDialog.h"
+#include "dialogs/WelcomeDialog.h"
 #include "common/Configuration.h"
 #include "common/InitialOptions.h"
 
@@ -35,7 +37,7 @@ class StringsWidget;
 class FlagsWidget;
 class Dashboard;
 class QLineEdit;
-class SdbDock;
+class SdbWidget;
 class QAction;
 class SectionsWidget;
 class SegmentsWidget;
@@ -71,6 +73,7 @@ public:
 
     void openNewFile(InitialOptions options = InitialOptions(), bool skipOptionsDialog = false);
     void displayNewFileDialog();
+    void displayWelcomeDialog();
     void closeNewFileDialog();
     void openProject(const QString &project_name);
 
@@ -102,6 +105,10 @@ public:
 
     void updateDockActionChecked(QAction * action);
 
+    QString getFilename() const
+    {
+        return filename;
+    }
 
 public slots:
     void finalizeOpen();
@@ -125,8 +132,13 @@ public slots:
 
     void openNewFileFailed();
 
+    void toggleOverview(bool visibility, GraphWidget *targetGraph);
+    void adjustOverview();
+    void adjustGraph();
+
 private slots:
     void on_actionAbout_triggered();
+    void on_actionIssue_triggered();
     void on_actionExtraGraph_triggered();
     void on_actionExtraHexdump_triggered();
     void on_actionExtraDisassembly_triggered();
@@ -196,10 +208,11 @@ private:
     QList<QDockWidget *> dockWidgets;
     QMap<QAction *, QDockWidget *> dockWidgetActions;
     DisassemblyWidget  *disassemblyDock = nullptr;
-    SidebarWidget      *sidebarDock = nullptr;
     HexdumpWidget      *hexdumpDock = nullptr;
     PseudocodeWidget   *pseudocodeDock = nullptr;
-    QDockWidget        *graphDock = nullptr;
+    GraphWidget        *graphDock = nullptr;
+    GraphWidget        *targetGraphDock = nullptr;
+    OverviewWidget     *overviewDock = nullptr;
     EntrypointWidget   *entrypointDock = nullptr;
     FunctionsWidget    *functionsDock = nullptr;
     ImportsWidget      *importsDock = nullptr;
@@ -214,7 +227,7 @@ private:
     FlagsWidget        *flagsDock = nullptr;
     Dashboard          *dashboardDock = nullptr;
     QLineEdit          *gotoEntry = nullptr;
-    SdbDock            *sdbDock = nullptr;
+    SdbWidget          *sdbDock = nullptr;
     SectionsWidget     *sectionsDock = nullptr;
     SegmentsWidget     *segmentsDock = nullptr;
     ZignaturesWidget   *zignaturesDock = nullptr;
@@ -240,6 +253,7 @@ private:
 
     void resetToDefaultLayout();
     void resetToDebugLayout();
+    void restoreDebugLayout();
 
     void restoreDocks();
     void hideAllDocks();
@@ -250,12 +264,7 @@ private:
     void toggleDockWidget(QDockWidget *dock_widget, bool show);
 
     void updateDockActionsChecked();
-
-public:
-    QString getFilename() const
-    {
-        return filename;
-    }
+    void setOverviewData();
 };
 
 #endif // MAINWINDOW_H

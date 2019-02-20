@@ -20,6 +20,10 @@
 #define CutterRListForeach(list, it, type, x) \
     if (list) for (it = list->head; it && ((x=static_cast<type*>(it->data))); it = it->n)
 
+#define CutterRVectorForeach(vec, it, type) \
+	if ((vec) && (vec)->a) \
+		for (it = (type *)(vec)->a; (char *)it != (char *)(vec)->a + ((vec)->len * (vec)->elem_size); it = (type *)((char *)it + (vec)->elem_size))
+
 #define APPNAME "Cutter"
 
 #define Core() (CutterCore::getInstance())
@@ -133,6 +137,7 @@ struct TypeDescription {
     QString type;
     int size;
     QString format;
+    QString category;
 };
 
 struct SearchDescription {
@@ -250,22 +255,48 @@ struct DisassemblyLine {
     QString text;
 };
 
-struct ClassMethodDescription {
+struct BinClassBaseClassDescription {
     QString name;
-    RVA addr;
+    RVA offset;
 };
 
-struct ClassFieldDescription {
+struct BinClassMethodDescription {
     QString name;
-    RVA addr;
+    RVA addr = RVA_INVALID;
+    st64 vtableOffset = -1;
 };
 
-struct ClassDescription {
+struct BinClassFieldDescription {
+    QString name;
+    RVA addr = RVA_INVALID;
+};
+
+struct BinClassDescription {
+    QString name;
+    RVA addr = RVA_INVALID;
+    RVA vtableAddr = RVA_INVALID;
+    ut64 index = 0;
+    QList<BinClassBaseClassDescription> baseClasses;
+    QList<BinClassMethodDescription> methods;
+    QList<BinClassFieldDescription> fields;
+};
+
+struct AnalMethodDescription {
     QString name;
     RVA addr;
-    ut64 index;
-    QList<ClassMethodDescription> methods;
-    QList<ClassFieldDescription> fields;
+    st64 vtableOffset;
+};
+
+struct AnalBaseClassDescription {
+    QString id;
+    RVA offset;
+    QString className;
+};
+
+struct AnalVTableDescription {
+    QString id;
+    ut64 offset;
+    ut64 addr;
 };
 
 struct ResourcesDescription {
@@ -279,7 +310,7 @@ struct ResourcesDescription {
 
 struct VTableDescription {
     RVA addr;
-    QList<ClassMethodDescription> methods;
+    QList<BinClassMethodDescription> methods;
 };
 
 struct BlockDescription {
@@ -332,6 +363,13 @@ struct RegisterRefDescription {
     QString ref;
 };
 
+struct VariableDescription {
+    enum class RefType { SP, BP, Reg };
+    RefType refType;
+    QString name;
+    QString type;
+};
+
 Q_DECLARE_METATYPE(FunctionDescription)
 Q_DECLARE_METATYPE(ImportDescription)
 Q_DECLARE_METATYPE(ExportDescription)
@@ -347,12 +385,15 @@ Q_DECLARE_METATYPE(RBinPluginDescription)
 Q_DECLARE_METATYPE(RIOPluginDescription)
 Q_DECLARE_METATYPE(RCorePluginDescription)
 Q_DECLARE_METATYPE(RAsmPluginDescription)
-Q_DECLARE_METATYPE(ClassMethodDescription)
-Q_DECLARE_METATYPE(ClassFieldDescription)
-Q_DECLARE_METATYPE(ClassDescription)
-Q_DECLARE_METATYPE(const ClassDescription *)
-Q_DECLARE_METATYPE(const ClassMethodDescription *)
-Q_DECLARE_METATYPE(const ClassFieldDescription *)
+Q_DECLARE_METATYPE(BinClassMethodDescription)
+Q_DECLARE_METATYPE(BinClassFieldDescription)
+Q_DECLARE_METATYPE(BinClassDescription)
+Q_DECLARE_METATYPE(const BinClassDescription *)
+Q_DECLARE_METATYPE(const BinClassMethodDescription *)
+Q_DECLARE_METATYPE(const BinClassFieldDescription *)
+Q_DECLARE_METATYPE(AnalBaseClassDescription)
+Q_DECLARE_METATYPE(AnalMethodDescription)
+Q_DECLARE_METATYPE(AnalVTableDescription)
 Q_DECLARE_METATYPE(ResourcesDescription)
 Q_DECLARE_METATYPE(VTableDescription)
 Q_DECLARE_METATYPE(TypeDescription)
@@ -365,6 +406,7 @@ Q_DECLARE_METATYPE(MemoryMapDescription)
 Q_DECLARE_METATYPE(BreakpointDescription)
 Q_DECLARE_METATYPE(ProcessDescription)
 Q_DECLARE_METATYPE(RegisterRefDescription)
+Q_DECLARE_METATYPE(VariableDescription)
 
 class CutterCore: public QObject
 {
@@ -437,11 +479,23 @@ public:
     void setImmediateBase(const QString &r2BaseName, RVA offset = RVA_INVALID);
     void setCurrentBits(int bits, RVA offset = RVA_INVALID);
 
+    /* Classes */
+    QList<QString> getAllAnalClasses(bool sorted);
+    QList<AnalMethodDescription> getAnalClassMethods(const QString &cls);
+    QList<AnalBaseClassDescription> getAnalClassBaseClasses(const QString &cls);
+    QList<AnalVTableDescription> getAnalClassVTables(const QString &cls);
+    void createNewClass(const QString &cls);
+    void renameClass(const QString &oldName, const QString &newName);
+    void deleteClass(const QString &cls);
+    bool getAnalMethod(const QString &cls, const QString &meth, AnalMethodDescription *desc);
+    void renameAnalMethod(const QString &className, const QString &oldMethodName, const QString &newMethodName);
+    void setAnalMethod(const QString &cls, const AnalMethodDescription &meth);
+
     /* File related methods */
     bool loadFile(QString path, ut64 baddr = 0LL, ut64 mapaddr = 0LL, int perms = R_PERM_R,
                   int va = 0, bool loadbin = false, const QString &forceBinPlugin = QString());
     bool tryFile(QString path, bool rw);
-    void openFile(QString path, RVA mapaddr);
+    bool openFile(QString path, RVA mapaddr);
     void loadScript(const QString &scriptname);
     QJsonArray getOpenedFiles();
 
@@ -472,6 +526,8 @@ public:
 
     /* Math functions */
     ut64 math(const QString &expr);
+    ut64 num(const QString &expr);
+    QString itoa(ut64 num, int rdx = 16);
 
     /* Config functions */
     void setConfig(const char *k, const QString &v);
@@ -484,6 +540,8 @@ public:
     void setConfig(const QString &k, const QVariant &v) { setConfig(k.toUtf8().constData(), v); }
     int getConfigi(const char *k);
     int getConfigi(const QString &k) { return getConfigi(k.toUtf8().constData()); }
+    ut64 getConfigut64(const char *k);
+    ut64 getConfigut64(const QString &k) { return getConfigut64(k.toUtf8().constData()); }
     bool getConfigb(const char *k);
     bool getConfigb(const QString &k) { return getConfigb(k.toUtf8().constData()); }
     QString getConfig(const char *k);
@@ -592,11 +650,53 @@ public:
     QList<SectionDescription> getAllSections();
     QList<SegmentDescription> getAllSegments();
     QList<EntrypointDescription> getAllEntrypoint();
-    QList<ClassDescription> getAllClassesFromBin();
-    QList<ClassDescription> getAllClassesFromFlags();
+    QList<BinClassDescription> getAllClassesFromBin();
+    QList<BinClassDescription> getAllClassesFromFlags();
     QList<ResourcesDescription> getAllResources();
     QList<VTableDescription> getAllVTables();
+
+    /*!
+     * \return all loaded types
+     */
     QList<TypeDescription> getAllTypes();
+
+    /*!
+     * \return all loaded primitive types
+     */
+    QList<TypeDescription> getAllPrimitiveTypes();
+
+    /*!
+     * \return all loaded unions
+     */
+    QList<TypeDescription> getAllUnions();
+
+    /*!
+     * \return all loaded structs
+     */
+    QList<TypeDescription> getAllStructs();
+
+    /*!
+     * \return all loaded enums
+     */
+    QList<TypeDescription> getAllEnums();
+
+    /*!
+     * \return all loaded typedefs
+     */
+    QList<TypeDescription> getAllTypedefs();
+
+    /*!
+     * \brief Adds new types
+     * It first uses the r_parse_c_string() function from radare2 API to parse the
+     * supplied C file (in the form of a string). If there were errors, they are displayed.
+     * If there were no errors, it uses sdb_query_lines() function from radare2 API
+     * to save the parsed types returned by r_parse_c_string()
+     * \param str Contains the definition of the data types
+     * \return returns an empty QString if there was no error, else returns the error
+     */
+    QString addTypes(const char *str);
+    QString addTypes(const QString &str) { return addTypes(str.toUtf8().constData()); }
+
     QList<MemoryMapDescription> getMemoryMap();
     QList<SearchDescription> getAllSearch(QString search_for, QString space);
     BlockStatistics getBlockStatistics(unsigned int blocksCount);
@@ -604,12 +704,15 @@ public:
     QList<ProcessDescription> getAllProcesses();
     QList<RegisterRefDescription> getRegisterRefs();
     QJsonObject getRegisterJson();
+    QList<VariableDescription> getVariables(RVA at);
 
     QList<XrefDescription> getXRefs(RVA addr, bool to, bool whole_function,
                                     const QString &filterType = QString::null);
 
     QList<StringDescription> parseStringsJson(const QJsonDocument &doc);
     QList<FunctionDescription> parseFunctionsJson(const QJsonDocument &doc);
+
+    void handleREvent(int type, void *data);
 
     /* Signals related */
     void triggerVarsChanged();
@@ -627,6 +730,8 @@ public:
 
     RCoreLocked core() const;
 
+    static QString ansiEscapeToHtml(const QString &text);
+
 signals:
     void refreshAll();
 
@@ -640,6 +745,11 @@ signals:
     void breakpointsChanged();
     void refreshCodeViews();
     void stackChanged();
+
+    void classNew(const QString &cls);
+    void classDeleted(const QString &cls);
+    void classRenamed(const QString &oldName, const QString &newName);
+    void classAttrsChanged(const QString &cls);
 
     void projectSaved(bool successfully, const QString &name);
 
